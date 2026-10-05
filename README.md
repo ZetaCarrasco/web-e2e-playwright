@@ -28,7 +28,7 @@ tests/
     ├── login.spec.ts              # pure UI flow
     ├── tasks-crud.spec.ts         # create / toggle / delete
     ├── tasks-filters.spec.ts      # data-driven (parameterized scenarios)
-    ├── visual.spec.ts             # visual regression (screenshot diffing)
+    ├── visual.spec.ts             # visual regression (Chromium-based projects only)
     └── api-ui-combined.spec.ts    # API writes verified in UI, and vice versa
 ```
 
@@ -57,6 +57,10 @@ tolerance (`maxDiffPixelRatio: 0.02`) tuned to absorb minor anti-aliasing differ
 machines without masking real layout regressions. Baselines are generated once and committed;
 see [Updating visual baselines](#updating-visual-baselines).
 
+These specs run in the Chromium-based projects only (`chromium` and `mobile-chrome`). Firefox
+and WebKit are covered by the functional specs; see [Design notes](#design-notes--trade-offs)
+for why.
+
 ### Combined API + UI checks
 `api-ui-combined.spec.ts` is the piece most manual-only QA backgrounds don't get to practice:
 creating data via the API and asserting it renders correctly in the UI, and vice versa — plus a
@@ -65,12 +69,11 @@ UI-only or API-only suites miss individually (e.g. the API returns the right JSO
 frontend renders it wrong).
 
 ### Parallel execution
-`playwright.config.ts` runs spec files in parallel across workers (`fullyParallel: true`), and
-`tasks-filters.spec.ts` additionally runs its own tests in parallel
-(`test.describe.configure({ mode: 'parallel' })`) since they're read-only against isolated
-browser contexts. Four browser projects (Chromium, Firefox, WebKit, and a mobile Chrome
-viewport) run the whole suite, and CI fans them out across a GitHub Actions matrix so browsers
-run concurrently instead of sequentially.
+Tests run one at a time within each browser project (`workers: 1`), because all specs share a
+single in-memory backend that `resetApp` wipes before every test (see
+[Design notes](#design-notes--trade-offs)). Parallelism comes from CI: a GitHub Actions matrix
+runs the four browser projects (Chromium, Firefox, WebKit, and a mobile Chrome viewport) as
+four concurrent jobs, each on its own runner with its own backend instance.
 
 ## Running locally
 
@@ -93,6 +96,9 @@ npm run test:headed    # run with visible browser windows
 npm run test:report    # open the last HTML report
 ```
 
+On Linux, a browser (WebKit in particular) may fail to launch because of missing system
+libraries. In that case run `sudo npx playwright install-deps`.
+
 The app can also be run standalone for manual exploration:
 
 ```bash
@@ -107,9 +113,11 @@ The first run of `visual.spec.ts` has no baseline to compare against. Generate o
 npm run test:update-snapshots
 ```
 
-Commit the resulting `tests/e2e/visual.spec.ts-snapshots/` directory. Re-run this command
-deliberately whenever a UI change is intentional — a failing visual test in CI is the signal
-that either the code or the baseline needs updating, never something to silence.
+Commit the resulting `tests/e2e/visual.spec.ts-snapshots/` directory. Baselines exist for the
+`chromium` and `mobile-chrome` projects only, and their file names carry the OS (`-linux.png`),
+matching the Ubuntu CI runner. Re-run this command deliberately whenever a UI change is
+intentional — a failing visual test in CI is the signal that either the code or the baseline
+needs updating, never something to silence.
 
 ## CI/CD
 
@@ -125,6 +133,20 @@ report as a build artifact for debugging failures without re-running locally.
 - **A test-only `/api/test/reset` endpoint** resets state between tests. This pattern (a
   reset/seed endpoint gated to test environments) is a common, pragmatic way to get
   deterministic E2E state without spinning up a real database per test run.
+- **Serial execution within each browser project.** The first CI run failed in all four
+  browsers, although the suite passed locally. The cause: every spec shares one in-memory
+  backend, and `resetApp` clears all of its state (including login sessions) before each test.
+  With two workers, one test's reset wiped the data and token of the test running next to it.
+  The fix was `workers: 1`; parallelism now comes from the CI matrix, where each job has its
+  own backend. Giving each test (or worker) an isolated backend state would allow parallel runs
+  again, and is the natural next improvement.
+- **Visual regression in Chromium-based projects only.** On the CI runner, Firefox and WebKit
+  rendered the tested element 1–3 px shorter than on the machine that generated the baselines
+  (about 4% of pixels, above the 2% tolerance), most likely because of font rendering
+  differences between the two environments. Raising the tolerance would mask real regressions,
+  so those engines are covered by the functional specs only. Generating the baselines inside
+  the same environment CI uses (for example a Playwright Docker image) is a possible next step
+  to cover all four engines.
 - **Retries are CI-only** (`retries: process.env.CI ? 2 : 0`), so a flaky test never
   silently passes during local development, but transient CI infrastructure hiccups don't
   block a PR unnecessarily.
