@@ -6,13 +6,13 @@ const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 export default defineConfig({
   testDir: './tests/e2e',
 
-  // Run spec files in parallel across workers. Locally this defaults to
-  // half the CPU cores; CI is capped explicitly to keep the free runner
-  // stable. Tests within a single file also run in parallel by default —
-  // see the `test.describe.configure({ mode: 'parallel' })` calls in specs
-  // that don't share mutable state.
-  fullyParallel: true,
-  workers: process.env.CI ? 2 : undefined,
+    // All specs share ONE in-memory backend, and `resetApp` wipes its state
+    // (including sessions) before every test. Running tests concurrently
+    // makes them wipe each other's data mid-test, so they run one at a time.
+    // Parallelism happens one level up: CI runs one job per browser project,
+    // each with its own backend instance.
+    fullyParallel: false,
+    workers: 1,
 
   // Fail the CI build if someone accidentally left a `.only` in a spec.
   forbidOnly: !!process.env.CI,

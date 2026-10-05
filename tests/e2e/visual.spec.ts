@@ -2,6 +2,12 @@ import { test, expect } from '../fixtures';
 import { TasksPage } from '../pages/TasksPage';
 
 test.describe('Visual regression', () => {
+  // Visual baselines are only stable in Chromium-based projects: Firefox and
+  // WebKit render text with slightly different metrics on the CI runner than
+  // on the machine that generated the baselines (element heights differ by a
+  // few pixels), so those engines are covered by the functional specs only.
+  test.skip(({ browserName }) => browserName !== 'chromium', 'Visual baselines are Chromium-only');
+  
   test('login view matches baseline', async ({ loginPage, page }) => {
     await loginPage.goto('/');
     await expect(page).toHaveScreenshot('login-view.png');
