@@ -7,8 +7,8 @@ test.describe('Task CRUD', () => {
 
     await tasksPage.addTask('Buy birthday gift', 'high');
 
-    const titles = await tasksPage.visibleTaskTitles();
-    expect(titles).toContain('Buy birthday gift');
+    // Poll: the list updates after the API round-trip, and allTextContents() does not auto-wait.
+    await expect.poll(() => tasksPage.visibleTaskTitles()).toContain('Buy birthday gift');
   });
 
   test('rejects an empty task title', async ({ authenticatedPage }) => {
