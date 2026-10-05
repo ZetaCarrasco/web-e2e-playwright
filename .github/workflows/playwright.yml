@@ -1,0 +1,46 @@
+name: E2E Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [chromium, firefox, webkit, mobile-chrome]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install test suite dependencies
+        run: npm ci
+
+      - name: Install backend dependencies
+        run: npm ci --prefix app/backend
+
+      - name: Install Playwright browsers
+        # mobile-chrome reuses the chromium engine, so browser installs are
+        # keyed by engine name, not by project name.
+        run: npx playwright install --with-deps chromium firefox webkit
+
+      - name: Run Playwright tests
+        run: npx playwright test --project=${{ matrix.project }}
+
+      - name: Upload HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ matrix.project }}
+          path: playwright-report/
+          retention-days: 14

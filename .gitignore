@@ -1,0 +1,16 @@
+node_modules/
+app/backend/node_modules/
+
+# Playwright artifacts
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+
+# Build/TS
+*.tsbuildinfo
+
+# OS/editor
+.DS_Store
+.vscode/
+.env

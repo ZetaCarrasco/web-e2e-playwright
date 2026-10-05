@@ -1,0 +1,19 @@
+{
+  "name": "web-e2e-playwright",
+  "version": "1.0.0",
+  "description": "Advanced Playwright E2E suite (POM, fixtures, data-driven tests, visual regression, combined API+UI checks, parallel execution) against a small Task Manager app.",
+  "private": true,
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
+    "test:report": "playwright show-report",
+    "test:update-snapshots": "playwright test --update-snapshots",
+    "app:start": "npm --prefix app/backend start"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.48.0",
+    "@types/node": "^26.4.1",
+    "typescript": "^7.0.2"
+  }
+}
