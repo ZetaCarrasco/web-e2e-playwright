@@ -24,8 +24,11 @@ test.describe('Task filters', () => {
 
       await tasksPage.filterBy(filter);
 
-      const titles = await tasksPage.visibleTaskTitles();
-      expect(titles.sort()).toEqual([...expectedTitles].sort());
+      // Poll instead of reading once: the list re-renders asynchronously
+      // after the filter click, and allTextContents() does not auto-wait.
+      await expect
+        .poll(async () => (await tasksPage.visibleTaskTitles()).sort())
+        .toEqual([...expectedTitles].sort());
     });
   }
 
