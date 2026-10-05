@@ -133,13 +133,18 @@ report as a build artifact for debugging failures without re-running locally.
 - **A test-only `/api/test/reset` endpoint** resets state between tests. This pattern (a
   reset/seed endpoint gated to test environments) is a common, pragmatic way to get
   deterministic E2E state without spinning up a real database per test run.
-- **Serial execution within each browser project.** The first CI run failed in all four
-  browsers, although the suite passed locally. The cause: every spec shares one in-memory
-  backend, and `resetApp` clears all of its state (including login sessions) before each test.
-  With two workers, one test's reset wiped the data and token of the test running next to it.
-  The fix was `workers: 1`; parallelism now comes from the CI matrix, where each job has its
-  own backend. Giving each test (or worker) an isolated backend state would allow parallel runs
-  again, and is the natural next improvement.
+- **Two causes behind the first CI failures.** The suite passed locally but failed in all four
+  browsers on the first CI run.
+  1. *Shared state.* Every spec shares one in-memory backend, and `resetApp` clears all of its
+     state (including login sessions) before each test. With two workers, one test's reset
+     wiped the data and token of the test running next to it. The fix was `workers: 1`;
+     parallelism now comes from the CI matrix, where each job has its own backend. Giving each
+     test (or worker) an isolated backend state would allow parallel runs again, and is the
+     natural next improvement.
+  2. *Reads that don't wait.* After that fix, a few tests still failed intermittently on the
+     slower CI runner (retries can hide this kind of failure). They read the task list with
+     `allTextContents()`, which does not auto-wait, right after an action. Replacing those
+     reads with `expect.poll` makes them wait until the list updates.
 - **Visual regression in Chromium-based projects only.** On the CI runner, Firefox and WebKit
   rendered the tested element 1–3 px shorter than on the machine that generated the baselines
   (about 4% of pixels, above the 2% tolerance), most likely because of font rendering
